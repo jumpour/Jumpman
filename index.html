@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Catch - Modern Arcade</title>
+    <style>
+        :root {
+            --bg-color: #0b0c10;
+            --panel-color: #1f2833;
+            --neon-blue: #45f3ff;
+            --neon-pink: #ff007f;
+            --text-color: #c5c6c7;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+            padding: 10px;
+        }
+
+        .game-container {
+            background: var(--panel-color);
+            border-radius: 24px;
+            padding: 20px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 20px rgba(69, 243, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 420px;
+        }
+
+        .header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 0 5px;
+        }
+
+        .title {
+            font-size: 1.2rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #fff;
+            text-shadow: 0 0 10px var(--neon-blue);
+        }
+
+        .score-box {
+            font-size: 1rem;
+            font-weight: 600;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 6px 14px;
+            border-radius: 12px;
+            border: 1px solid rgba(69, 243, 255, 0.2);
+            color: var(--neon-blue);
+        }
+
+        #gameCanvas {
+            background: #000;
+            border-radius: 16px;
+            width: 100%;
+            aspect-ratio: 4 / 5;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            display: block;
+        }
+
+        .controls-area {
+            width: 100%;
+            margin-top: 25px;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            height: 140px;
+        }
+
+        /* Virtual Joystick Styles */
+        .joystick-container {
+            width: 120px;
+            height: 120px;
+            background: radial-gradient(circle, #2c3540 0%, #121820 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            touch-action: none;
+            box-shadow: 0 8px 15px rgba(0,0,0,0.4), inset 0 2px 5px rgba(255,255,255,0.1);
+            border: 2px solid #2a343f;
+        }
+
+        .joystick-knob {
+            width: 55px;
+            height: 55px;
+            background: radial-gradient(circle, #45f3ff 0%, #00a8ff 100%);
+            border-radius: 50%;
+            position: absolute;
+            box-shadow: 0 5px 10px rgba(0, 168, 255, 0.4), inset 0 2px 4px rgba(255,255,255,0.4);
+            cursor: pointer;
+            transition: transform 0.05s ease;
+            transform: translate(0, 0);
+        }
+
+        /* Action Button Styles */
+        .btn-action {
+            width: 75px;
+            height: 75px;
+            background: linear-gradient(135deg, #ff007f 0%, #aa0055 100%);
+            border-radius: 50%;
+            border: none;
+            outline: none;
+            color: white;
+            font-weight: bold;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 6px 15px rgba(255, 0, 127, 0.4), inset 0 2px 4px rgba(255,255,255,0.3);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            active-transform: scale(0.95);
+        }
+
+        .btn-action:active {
+            transform: scale(0.95);
+            background: linear-gradient(135deg, #aa0055 0%, #ff007f 100%);
+            box-shadow: 0 2px 5px rgba(255, 0, 127, 0.2);
+        }
+
+        .instructions {
+            margin-top: 15px;
+            font-size: 0.75rem;
+            color: #667486;
+            text-align: center;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-container">
+        <div class="header">
+            <div class="title">Neon Catch</div>
+            <div class="score-box">SCORE: <span id="scoreVal">0</span></div>
+        </div>
+
+        <canvas id="gameCanvas" width="400" height="500"></canvas>
+
+        <div class="controls-area">
+            <!-- Joystick -->
+            <div class="joystick-container" id="joystickBounds">
+                <div class="joystick-knob" id="joystickKnob"></div>
+            </div>
+
+            <!-- Action Button (Restart / Start) -->
+            <button class="btn-action" id="actionBtn">Start</button>
+        </div>
+
+        <div class="instructions">
+            Joystick ziehen oder Pfeiltasten [←] [→] zum Bewegen.<br>
+            Aktions-Button oder [Leertaste] für Neustart.
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreVal = document.getElementById('scoreVal');
+        const actionBtn = document.getElementById('actionBtn');
+        const joystickBounds = document.getElementById('joystickBounds');
+        const joystickKnob = document.getElementById('joystickKnob');
+
+        // Game State
+        let score = 0;
+        let gameOver = true;
+        let gameStarted = false;
+        
+        // Player (Paddle)
+        const paddle = {
+            x: 160,
+            y: 460,
+            width: 80,
+            height: 12,
+            speed: 7,
+            dx: 0
+        };
+
+        // Falling Objects
+        let items = [];
+        let itemSpeed = 3;
+        let spawnTimer = 0;
+        let spawnInterval = 60; // frames
+
+        // Keyboard input state
+        const keys = { right: false, left: false };
+
+        // Joystick Logic Variables
+        let joystickActive = false;
+        let joystickStartX = 0;
+        let joystickStartY = 0;
+        const maxJoystickDistance = 40; // Max drag distance from center
+
+        // Event Listeners for Keyboard
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'd') keys.right = true;
+            if (e.key === 'ArrowLeft' || e.key === 'a') keys.left = true;
+            if (e.key === ' ' || e.key === 'Enter') {
+                e.preventDefault();
+                handleActionButton();
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'd') keys.right = false;
+            if (e.key === 'ArrowLeft' || e.key === 'a') keys.left = false;
+        });
+
+        // Action button click
+        actionBtn.addEventListener('click', handleActionButton);
+
+        // Joystick Touch & Mouse Events
+        function handleJoystickStart(clientX, clientY) {
+            joystickActive = true;
+            const rect = joystickBounds.getBoundingClientRect();
+            joystickStartX = rect.left + rect.width / 2;
+            joystickStartY = rect.top + rect.height / 2;
+            handleJoystickMove(clientX, clientY);
+        }
+
+        function handleJoystickMove(clientX, clientY) {
+            if (!joystickActive) return;
+
+            let deltaX = clientX - joystickStartX;
+            let deltaY = clientY - joystickStartY;
+            let distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+            if (distance > maxJoystickDistance) {
+                deltaX = (deltaX / distance) * maxJoystickDistance;
+                deltaY = (deltaY / distance) * maxJoystickDistance;
+                distance = maxJoystickDistance;
+            }
+
+            // Visual move of knob
+            joystickKnob.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+
+            // Map horizontal joystick displacement to player movement speed ratio (-1 to 1)
+            let intensity = deltaX / maxJoystickDistance;
+            paddle.dx = intensity * paddle.speed;
+        }
+
+        function handleJoystickEnd() {
+            joystickActive = false;
+            joystickKnob.style.transform = 'translate(0px, 0px)';
+            paddle.dx = 0;
+        }
+
+        // Touch Listeners
+        joystickBounds.addEventListener('touchstart', (e) => {
+            if(e.touches.length > 0) {
+                handleJoystickStart(e.touches[0].clientX, e.touches[0].clientY);
+            }
+        }, { passive: true });
+
+        window.addEventListener('touchmove', (e) => {
+            if (joystickActive && e.touches.length > 0) {
+                handleJoystickMove(e.touches[0].clientX, e.touches[0].clientY);
+            }
+        }, { passive: false });
+
+        window.addEventListener('touchend', handleJoystickEnd);
+
+        // Mouse Listeners (for desktop testing joystick)
+        joystickBounds.addEventListener('mousedown', (e) => {
+            handleJoystickStart(e.clientX, e.clientY);
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (joystickActive) handleJoystickMove(e.clientX, e.clientY);
+        });
+
+        window.addEventListener('mouseup', handleJoystickEnd);
+
+
+        function handleActionButton() {
+            if (gameOver) {
+                resetGame();
+            }
+        }
+
+        function resetGame() {
+            score = 0;
+            items = [];
+            itemSpeed = 3;
+            paddle.x = canvas.width / 2 - paddle.width / 2;
+            gameOver = false;
+            gameStarted = true;
+            scoreVal.textContent = score;
+            actionBtn.textContent = "Reset";
+            actionBtn.style.background = "linear-gradient(135deg, #3a4750 0%, #222831 100%)";
+            actionBtn.style.boxShadow = "0 6px 15px rgba(0,0,0,0.3)";
+        }
+
+        function spawnItem() {
+            const size = Math.random() * 15 + 15;
+            items.push({
+                x: Math.random() * (canvas.width - size),
+                y: -size,
+                size: size,
+                color: Math.random() > 0.3 ? '#45f3ff' : '#ff007f', // Blue neon or Pink neon
+                points: 1
+            });
+        }
+
+        // Main Game Loop
+        function update() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Handle Keyboard Input over joystick if active
+            if (keys.right) {
+                paddle.x += paddle.speed;
+            } else if (keys.left) {
+                paddle.x -= paddle.speed;
+            } else if (joystickActive) {
+                paddle.x += paddle.dx;
+            }
+
+            // Screen boundary check for paddle
+            if (paddle.x < 0) paddle.x = 0;
+            if (paddle.x + paddle.width > canvas.width) paddle.x = canvas.width - paddle.width;
+
+            if (!gameOver) {
+                // Spawn Items
+                spawnTimer++;
+                if (spawnTimer >= spawnInterval) {
+                    spawnItem();
+                    spawnTimer = 0;
+                    // Slowly increase difficulty
+                    if (score > 0 && score % 5 === 0 && spawnInterval > 25) {
+                        spawnInterval -= 2;
+                        itemSpeed += 0.15;
+                    }
+                }
+
+                // Update and Draw Items
+                for (let i = items.length - 1; i >= 0; i--) {
+                    let item = items[i];
+                    item.y += itemSpeed;
+
+                    // Collision checking with paddle
+                    if (
+                        item.y + item.size >= paddle.y &&
+                        item.y <= paddle.y + paddle.height &&
+                        item.x + item.size >= paddle.x &&
+                        item.x <= paddle.x + paddle.width
+                    ) {
+                        score += item.points;
+                        scoreVal.textContent = score;
+                        items.splice(i, 1);
+                        continue;
+                    }
+
+                    // Check if item missed
+                    if (item.y > canvas.height) {
+                        gameOver = true;
+                        actionBtn.textContent = "Restart";
+                        actionBtn.style.background = "linear-gradient(135deg, #ff007f 0%, #aa0055 100%)";
+                        actionBtn.style.boxShadow = "0 6px 15px rgba(255, 0, 127, 0.4)";
+                    }
+
+                    // Draw Item with a glowing style
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = item.color;
+                    ctx.fillStyle = item.color;
+                    ctx.beginPath();
+                    ctx.arc(item.x + item.size/2, item.y + item.size/2, item.size/2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            // Reset shadow properties for paddle
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#45f3ff';
+            
+            // Draw Paddle (Modern Glassmorphism/Neon Look)
+            ctx.fillStyle = '#45f3ff';
+            ctx.beginPath();
+            ctx.roundRect(paddle.x, paddle.y, paddle.width, paddle.height, 6);
+            ctx.fill();
+            
+            // Reset shadows for overlays
+            ctx.shadowBlur = 0;
+
+            // Overlay Screens
+            if (!gameStarted) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 24px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('NEON CATCH', canvas.width / 2, canvas.height / 2 - 20);
+                
+                ctx.fillStyle = '#c5c6c7';
+                ctx.font = '14px sans-serif';
+                ctx.fillText('Drücke START oder LEERTASTE', canvas.width / 2, canvas.height / 2 + 25);
+            } else if (gameOver) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                ctx.fillStyle = '#ff007f';
+                ctx.font = 'bold 28px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('GAME OVER', canvas.width / 2, canvas.height / 2 - 30);
+                
+                ctx.fillStyle = '#fff';
+                ctx.font = '18px sans-serif';
+                ctx.fillText(`Deine Punktzahl: ${score}`, canvas.width / 2, canvas.height / 2 + 10);
+
+                ctx.fillStyle = '#667486';
+                ctx.font = '13px sans-serif';
+                ctx.fillText('Klicke auf RESTART für eine neue Runde', canvas.width / 2, canvas.height / 2 + 50);
+            }
+
+            requestAnimationFrame(update);
+        }
+
+        // Helper to grab CSS variable value inside canvas if needed
+        function varColor(name) {
+            return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        }
+
+        // Run Loop
+        requestAnimationFrame(update);
+    </script>
+</body>
+</html>
