@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retro GameBoy Catch Game</title>
+    <style>
+        body {
+            background-color: #2b2b2b;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            color: #0f380f;
+        }
+
+        /* GameBoy Shell */
+        .gameboy {
+            background-color: #c2c2c2;
+            width: 320px;
+            height: 520px;
+            border-radius: 10px 10px 50px 10px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5), inset 0 -5px 10px rgba(0,0,0,0.2);
+            padding: 20px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            border: 3px solid #999;
+        }
+
+        /* Screen Border */
+        .screen-border {
+            background-color: #777b7e;
+            width: 260px;
+            height: 200px;
+            border-radius: 10px 10px 30px 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 30px;
+            border: 2px solid #555;
+            position: relative;
+        }
+
+        .screen-border::after {
+            content: "DOT MATRIX WITH STEREO SOUND";
+            position: absolute;
+            top: 5px;
+            font-size: 8px;
+            color: #ccc;
+            letter-spacing: 1px;
+        }
+
+        /* Actual Game Screen (GameBoy Matrix Colors) */
+        #gameCanvas {
+            background-color: #9bbc0f;
+            border: 4px solid #8bac0f;
+            image-rendering: pixelated;
+        }
+
+        /* Controls Area */
+        .controls {
+            width: 100%;
+            height: 200px;
+            position: relative;
+        }
+
+        /* D-Pad */
+        .dpad {
+            position: absolute;
+            left: 20px;
+            top: 40px;
+            width: 80px;
+            height: 80px;
+        }
+
+        .dpad-btn {
+            background-color: #333;
+            position: absolute;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            cursor: pointer;
+        }
+
+        .dpad-btn:active {
+            background-color: #111;
+        }
+
+        .dpad-left { width: 30px; height: 24px; left: 0; top: 28px; border-radius: 3px 0 0 3px; }
+        .dpad-right { width: 30px; height: 24px; right: 0; top: 28px; border-radius: 0 3px 3px 0; }
+        .dpad-up { width: 24px; height: 30px; left: 28px; top: 0; border-radius: 3px 3px 0 0; }
+        .dpad-down { width: 24px; height: 30px; left: 28px; bottom: 0; border-radius: 0 0 3px 3px; }
+        .dpad-center { width: 24px; height: 24px; left: 28px; top: 28px; background-color: #333; z-index: 2; cursor: default; }
+
+        /* Action Buttons */
+        .buttons {
+            position: absolute;
+            right: 20px;
+            top: 50px;
+            transform: rotate(-15deg);
+            display: flex;
+            gap: 15px;
+        }
+
+        .btn {
+            width: 40px;
+            height: 40px;
+            background-color: #a91a42;
+            border-radius: 50%;
+            border: none;
+            box-shadow: 0 3px 5px rgba(0,0,0,0.4);
+            cursor: pointer;
+            position: relative;
+        }
+
+        .btn:active {
+            background-color: #78122e;
+            transform: translateY(2px);
+        }
+
+        .btn::after {
+            position: absolute;
+            bottom: -20px;
+            left: 15px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #30451e;
+            transform: rotate(15deg);
+        }
+        .btn-a::after { content: "A"; }
+        .btn-b::after { content: "B"; }
+
+        /* Menu Buttons (Select/Start) */
+        .menu-buttons {
+            position: absolute;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 25px;
+        }
+
+        .menu-btn-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .menu-btn {
+            width: 45px;
+            height: 12px;
+            background-color: #7b7b7b;
+            border-radius: 6px;
+            transform: rotate(-25deg);
+            cursor: pointer;
+            box-shadow: 0 2px 3px rgba(0,0,0,0.3);
+        }
+
+        .menu-btn:active {
+            background-color: #555;
+        }
+
+        .menu-label {
+            font-size: 9px;
+            font-weight: bold;
+            color: #30451e;
+            margin-top: 5px;
+            text-transform: uppercase;
+        }
+
+        /* Branding */
+        .brand {
+            font-style: italic;
+            font-weight: bold;
+            font-size: 16px;
+            color: #30451e;
+            margin-top: -15px;
+            margin-bottom: 5px;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="gameboy">
+        <div class="brand">GameBoy HTML</div>
+        <div class="screen-border">
+            <canvas id="gameCanvas" width="200" height="160"></canvas>
+        </div>
+        
+        <div class="controls">
+            <!-- D-Pad -->
+            <div class="dpad">
+                <div class="dpad-btn dpad-left" id="keyLeft"></div>
+                <div class="dpad-btn dpad-right" id="keyRight"></div>
+                <div class="dpad-btn dpad-up"></div>
+                <div class="dpad-btn dpad-down"></div>
+                <div class="dpad-center"></div>
+            </div>
+
+            <!-- A / B Buttons -->
+            <div class="buttons">
+                <div class="btn btn-b" id="btnB"></div>
+                <div class="btn btn-a" id="btnA"></div>
+            </div>
+
+            <!-- Select / Start -->
+            <div class="menu-buttons">
+                <div class="menu-btn-container">
+                    <div class="menu-btn" id="btnSelect"></div>
+                    <div class="menu-label">Select</div>
+                </div>
+                <div class="menu-btn-container">
+                    <div class="menu-btn" id="btnStart"></div>
+                    <div class="menu-label">Start</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        // Game states: 'START', 'PLAYING', 'GAMEOVER'
+        let gameState = 'START';
+        let score = 0;
+        let highscore = 0;
+
+        // Player object
+        const player = {
+            x: 90,
+            y: 140,
+            width: 20,
+            height: 10,
+            speed: 5
+        };
+
+        // Falling Item object
+        const item = {
+            x: Math.random() * (canvas.width - 10),
+            y: 0,
+            size: 8,
+            speed: 2
+        };
+
+        // Key states
+        let rightPressed = false;
+        let leftPressed = false;
+
+        // Event Listeners for Keyboard
+        document.addEventListener("keydown", keyDownHandler);
+        document.addEventListener("keyup", keyUpHandler);
+
+        function keyDownHandler(e) {
+            if (e.key === "Right" || e.key === "ArrowRight") rightPressed = true;
+            if (e.key === "Left" || e.key === "ArrowLeft") leftPressed = true;
+            if (e.key === "Enter") handleStart();
+        }
+
+        function keyUpHandler(e) {
+            if (e.key === "Right" || e.key === "ArrowRight") rightPressed = false;
+            if (e.key === "Left" || e.key === "ArrowLeft") leftPressed = false;
+        }
+
+        // On-screen Touch/Click Controls
+        document.getElementById("keyLeft").addEventListener("mousedown", () => leftPressed = true);
+        document.getElementById("keyLeft").addEventListener("mouseup", () => leftPressed = false);
+        document.getElementById("keyLeft").addEventListener("touchstart", (e) => { e.preventDefault(); leftPressed = true; });
+        document.getElementById("keyLeft").addEventListener("touchend", () => leftPressed = false);
+
+        document.getElementById("keyRight").addEventListener("mousedown", () => rightPressed = true);
+        document.getElementById("keyRight").addEventListener("mouseup", () => rightPressed = false);
+        document.getElementById("keyRight").addEventListener("touchstart", (e) => { e.preventDefault(); rightPressed = true; });
+        document.getElementById("keyRight").addEventListener("touchend", () => rightPressed = false);
+
+        document.getElementById("btnStart").addEventListener("click", handleStart);
+        document.getElementById("btnA").addEventListener("click", handleStart);
+
+        function handleStart() {
+            if (gameState === 'START' || gameState === 'GAMEOVER') {
+                score = 0;
+                item.y = 0;
+                item.x = Math.random() * (canvas.width - item.size);
+                item.speed = 2;
+                player.x = 90;
+                gameState = 'PLAYING';
+            }
+        }
+
+        function update() {
+            if (gameState === 'PLAYING') {
+                // Move player
+                if (rightPressed && player.x < canvas.width - player.width) {
+                    player.x += player.speed;
+                } else if (leftPressed && player.x > 0) {
+                    player.x -= player.speed;
+                }
+
+                // Move item
+                item.y += item.speed;
+
+                // Check collision with ground (miss)
+                if (item.y > canvas.height) {
+                    if (score > highscore) highscore = score;
+                    gameState = 'GAMEOVER';
+                }
+
+                // Check collision with player (catch)
+                if (
+                    item.y + item.size >= player.y &&
+                    item.x + item.size >= player.x &&
+                    item.x <= player.x + player.width
+                ) {
+                    score++;
+                    item.y = 0;
+                    item.x = Math.random() * (canvas.width - item.size);
+                    item.speed += 0.2; // increase difficulty
+                }
+            }
+        }
+
+        function drawText(text, x, y, size = "12px") {
+            ctx.font = size + " 'Courier New', monospace";
+            ctx.fillStyle = "#0f380f";
+            ctx.fillText(text, x, y);
+        }
+
+        function draw() {
+            // Clear canvas with the GameBoy classic light green
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (gameState === 'START') {
+                drawText("RETRO CATCH", 45, 60, "bold 16px");
+                drawText("Druecke START/A", 40, 100, "11px");
+            } 
+            
+            else if (gameState === 'PLAYING') {
+                // Draw UI Score (Classic pixel look)
+                drawText("SCORE: " + score, 5, 15, "10px");
+
+                // Draw Player (Paddle)
+                ctx.fillStyle = "#30451e";
+                ctx.fillRect(player.x, player.y, player.width, player.height);
+                // Grid detail on player
+                ctx.fillStyle = "#9bbc0f";
+                ctx.fillRect(player.x + 2, player.y + 2, 4, 6);
+                ctx.fillRect(player.x + 14, player.y + 2, 4, 6);
+
+                // Draw Falling Object
+                ctx.fillStyle = "#0f380f";
+                ctx.fillRect(item.x, item.y, item.size, item.size);
+            } 
+            
+            else if (gameState === 'GAMEOVER') {
+                drawText("GAME OVER", 55, 60, "bold 16px");
+                drawText("Score: " + score, 65, 90, "12px");
+                drawText("High: " + highscore, 65, 110, "12px");
+                drawText("A fuer Neustart", 45, 140, "10px");
+            }
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Start the continuous animation loop
+        gameLoop();
+    </script>
+</body>
+</html>
